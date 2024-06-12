@@ -1,0 +1,163 @@
+﻿@page
+@model SalesQueryModel
+@{
+    ViewData["Title"] = "Sales Query";
+}
+
+<div class="container mt-5">
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title text-center">Sales Query</h2>
+        </div>
+        <div class="card-body">
+            <form method="post" class="form-inline justify-content-center mb-4">
+                <div class="form-group mx-sm-3 mb-2">
+                    <label for="year" class="sr-only">Year</label>
+                    <input type="number" class="form-control" id="year" name="year" value="@Model.Year" placeholder="Year" required />
+                </div>
+                <div class="form-group mx-sm-3 mb-2">
+                    <label for="increase" class="sr-only">Percentage Increase</label>
+                    <input type="number" class="form-control" id="increase" name="increase" step="0.1" value="@Model.PercentageIncrease" placeholder="Percentage Increase" required />
+                </div>
+                <button type="submit" class="btn btn-primary mb-2">Query</button>
+            </form>
+
+            @if (Model.TotalSales != null)
+            {
+                <div class="alert alert-info" role="alert">
+                    <h4 class="alert-heading">Total Sales</h4>
+                    <p>Total Sales for the year @Model.Year: <strong>@Model.TotalSales</strong></p>
+                </div>
+
+                <h4>Sales Breakdown by State</h4>
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead class="thead-dark">
+                            <tr>
+                                <th>State</th>
+                                <th>Sales</th>
+                                <th>Increased Sales</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var item in Model.PaginatedSalesByState)
+                            {
+                                <tr>
+                                    <td>@item.State</td>
+                                    <td>@item.Sales.ToString("C")</td>
+                                    <td>@item.IncreasedSales.ToString("C")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+                <nav aria-label="Page navigation">
+                    <ul class="pagination">
+                        @for (int i = 1; i <= Model.TotalPages; i++)
+                        {
+                            <li class="page-item @(Model.CurrentPage == i ? "active" : "")">
+                                <a class="page-link" href="#" data-page="@i">@i</a>
+                            </li>
+                        }
+                    </ul>
+                </nav>
+
+                <h4>Sales Charts</h4>
+                <canvas id="totalSalesChart"></canvas>
+                <canvas id="stateSalesChart" class="mt-4"></canvas>
+
+                <form method="post" action="/SalesQuery/DownloadCsv" class="mt-3">
+                    <input type="hidden" name="year" value="@Model.Year" />
+                    <input type="hidden" name="increase" value="@Model.PercentageIncrease" />
+                    <button type="submit" class="btn btn-secondary">Download CSV</button>
+                </form>
+            }
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        const totalSalesData = {
+            labels: ['Seeding Year Sales', 'Forecasted Year Sales'],
+            datasets: [{
+                label: 'Sales',
+                data: [@Model.TotalSales, @Model.ForecastedTotalSales],
+                backgroundColor: ['rgba(54, 162, 235, 0.2)', 'rgba(75, 192, 192, 0.2)'],
+                borderColor: ['rgba(54, 162, 235, 1)', 'rgba(75, 192, 192, 1)'],
+                borderWidth: 1
+            }]
+        };
+
+        const totalSalesConfig = {
+            type: 'bar',
+            data: totalSalesData,
+            options: {
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        };
+
+        const totalSalesChart = new Chart(
+            document.getElementById('totalSalesChart'),
+            totalSalesConfig
+        );
+
+        const stateLabels = @Html.Raw(Json.Serialize(Model.PaginatedSalesByState.Select(s => s.State)));
+        const stateSalesData = {
+            labels: stateLabels,
+            datasets: [{
+                label: 'Seeding Year Sales',
+                data: @Html.Raw(Json.Serialize(Model.PaginatedSalesByState.Select(s => s.Sales))),
+                backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                borderColor: 'rgba(54, 162, 235, 1)',
+                borderWidth: 1
+            }, {
+                label: 'Forecasted Year Sales',
+                data: @Html.Raw(Json.Serialize(Model.PaginatedSalesByState.Select(s => s.IncreasedSales))),
+                backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                borderColor: 'rgba(75, 192, 192, 1)',
+                borderWidth: 1
+            }]
+        };
+
+        const stateSalesConfig = {
+            type: 'bar',
+            data: stateSalesData,
+            options: {
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        };
+
+        const stateSalesChart = new Chart(
+            document.getElementById('stateSalesChart'),
+            stateSalesConfig
+        );
+
+        document.querySelectorAll('.page-link').forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                const page = e.target.getAttribute('data-page');
+                const form = new FormData();
+                form.append('year', @Model.Year);
+                form.append('increase', @Model.PercentageIncrease);
+                form.append('page', page);
+                fetch('@Url.Page("/SalesQuery")', {
+                    method: 'POST',
+                    body: form
+                })
+                    .then(response => response.text())
+                    .then(html => {
+                        document.body.innerHTML = html;
+                    });
+            });
+        });
+    </script>
+}
