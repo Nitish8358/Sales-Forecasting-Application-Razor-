@@ -31,7 +31,7 @@ public class SalesQueryModel : PageModel
         PercentageIncrease = decimal.Parse(Request.Form["increase"]);
         CurrentPage = int.Parse(Request.Form["page"] ?? "1");
 
-        string connectionString = "your_connection_string_here";
+        string connectionString = "connection_string";
         using (SqlConnection connection = new SqlConnection(connectionString))
         {
             connection.Open();
